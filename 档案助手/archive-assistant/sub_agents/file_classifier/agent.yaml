@@ -1,0 +1,38 @@
+# 子代理：file_classifier —— 只读文件分类子代理
+# 主 agent 通过 Agent 工具，把"判定这一批文件分别属于哪个档案门类"的分类任务并行委派给它。
+# 它只读不写：读文件内容（含扫描件）+ 判定门类 + 汇总，不重命名、不移动、不改任何文件——归档动作归主 agent。
+# 给多个 file_classifier 分别处理不同批次，可显著加速一次大批量归档。
+type: agent
+name: file_classifier
+description: 只读文件分类子代理，负责读一批文件、判定档案门类，把分类结果汇总给主 agent，不做任何写操作。
+
+system_prompt: ./systemprompt.md
+system_prompt_type: jinja
+
+llm_config:
+  api_type: openai_chat_completion
+  model: ${env.LLM_MODEL}
+  base_url: ${env.LLM_BASE_URL}
+  api_key: ${env.LLM_API_KEY}
+  max_tokens: 16000
+  temperature: 1
+  stream: True
+
+tool_call_mode: structured
+max_iterations: 80
+max_context_tokens: 128000
+
+# 只给"列目录 + 读取（含扫描件）+ 收尾"工具，刻意不给写文件/Shell——分类归分类，归档动作归主 agent
+tools:
+  - name: list_directory
+    yaml_path: ./tools/list_directory.tool.yaml
+    binding: nexau.archs.tool.builtin.file_tools:list_directory
+  - name: read_file
+    yaml_path: ./tools/read_file.tool.yaml
+    binding: nexau.archs.tool.builtin.file_tools:read_file
+  - name: read_visual_file
+    yaml_path: ./tools/read_visual_file.tool.yaml
+    binding: nexau.archs.tool.builtin.file_tools:read_visual_file
+  - name: complete_task
+    yaml_path: ./tools/complete_task.tool.yaml
+    binding: nexau.archs.tool.builtin.session_tools:complete_task
