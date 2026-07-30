@@ -11,7 +11,7 @@
 # │ SEARCH_ENGINE     │  否  │ 空          │ 底层搜索引擎，仅聚合型服务商生效    │
 # │ SEARCH_BASE_URL   │  否  │ 各家内置    │ 覆盖上游地址（私有化/内网部署）     │
 # │ SEARCH_TIMEOUT    │  否  │ 30          │ 单次请求超时秒数                    │
-# │ SEARCH_MAX_RETRIES│  否  │ 3           │ 失败重试次数（指数退避）            │
+# │ SEARCH_MAX_RETRIES│  否  │ 3           │ 总尝试次数(含首次)，指数退避，下限 1│
 # └───────────────────┴──────┴─────────────┴─────────────────────────────────────┘
 #
 # ── SEARCH_PROVIDER 可选值 ───────────────────────────────────────────────────
@@ -97,7 +97,8 @@
 type: tool
 name: AggregatedWebSearch
 description: >-
-  - 聚合 Web 搜索工具：一个工具接口，后端可在多家搜索服务商之间切换。
+  - 联网搜索：允许模型检索公网实时信息，用于回答超出模型知识截止日期的问题。
+  - 后端服务商可在 Serper / Seed / Baidu / XiaoBei 之间切换（RFC-0028）。
   - 联网检索并返回格式化的搜索结果块(序号 / 标题 / 链接 / 摘要 / 发布时间 / 权威度)，
     提供超出模型知识截止日期的最新信息。
   - **搜索服务商由环境变量切换**：`SEARCH_PROVIDER` 取 `Serper` / `Seed` / `Baidu` /
@@ -111,7 +112,8 @@ description: >-
     - 想要更聚焦时，优先用 `time_range`(限时效) 和 `sites`(限站点)，
       而不是把限定词硬塞进 `query` —— 后者会稀释检索信号。
     - 各引擎能力不同，**不支持的参数会被静默忽略**，不会报错：
-      `sites` / `block_hosts` 在 Serper / XiaoBei 上降级为查询词算子，Seed / Baidu 有原生字段；
+      `sites` 在 Serper / XiaoBei 上降级为查询词算子，Seed / Baidu 有原生字段；
+      `block_hosts` 在 Seed 上是原生字段，Serper / XiaoBei / Baidu 靠查询词算子或本地过滤；
       `authority_only` / `industry` / `need_content` / `full_content` 仅 `Seed`(豆包搜索) 支持；
       `country` / `location` / `page` 仅 `Serper` 支持；
       `search_engine` / `render_js` 仅 `XiaoBei` 支持；`language` 仅 `Serper` 与 `XiaoBei` 支持；
@@ -127,7 +129,7 @@ description: >-
   部署配置(由部署者在 NAC「环境变量」页设置，改后需 Redeploy)：
     `SEARCH_PROVIDER` 选服务商 ｜ `SEARCH_API_KEY` 密钥(必填) ｜
     `SEARCH_ENGINE` 选底层引擎 ｜ `SEARCH_BASE_URL` 覆盖上游地址 ｜
-    `SEARCH_TIMEOUT` 超时秒数(默认 30) ｜ `SEARCH_MAX_RETRIES` 重试次数(默认 3)。
+    `SEARCH_TIMEOUT` 超时秒数(默认 30) ｜ `SEARCH_MAX_RETRIES` 总尝试次数(默认 3)。
     此外**下方每个参数都能用环境变量设部署级默认值**，命名规则为
     `SEARCH_` + 参数名大写(自带 search_ 前缀的去重)，如 content_format →
     `SEARCH_CONTENT_FORMAT`；优先级为「调用时显式传参 > 环境变量 > 内置默认」。
@@ -189,8 +191,9 @@ input_schema:
       description: >-
         屏蔽这些站点的结果，默认 ""(不屏蔽)。多个域名用 | 分隔，最多 5 个，
         需填完整域名，例如 "zhihu.com|baijiahao.baidu.com"。
-        对应上游字段：豆包 Filter.BlockHosts / 百度 search_filter.block_websites；
-        Serper 与北坡降级为 -site: 算子。
+        对应上游字段：豆包 Filter.BlockHosts（原生生效）。
+        Serper 与北坡降级为 -site: 算子；**百度的 search_filter.block_websites
+        实测不生效**（完整域名与裸域名都试过），实际屏蔽由工具在本地按 host 过滤完成。
     authority_only:
       type: boolean
       default: false

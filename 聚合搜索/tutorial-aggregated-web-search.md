@@ -355,6 +355,9 @@ SEARCH_PROVIDER = Seed                    # 或 Serper / Baidu / XiaoBei
 SEARCH_API_KEY  = <对应服务商的 Key>
 ```
 
+> ⚠️ `SEARCH_MAX_RETRIES` 的语义是**总尝试次数（含首次）**，不是"额外重试几次"。
+> 工具内部已钳到下限 1，配成 `0` 不会变成"一次都不试"。
+
 改完环境变量需要 **Redeploy** 才生效。
 
 可选的部署级默认值（举两个实用的）：
@@ -369,7 +372,7 @@ SEARCH_NUM_RESULTS       = 5
 SEARCH_MAX_CONTENT_CHARS = 800
 ```
 
-完整的 23 个变量速查表在 `tools/AggregatedWebSearch.tool.yaml` **文件顶部的注释块**里。那段注释会被 YAML 解析器丢弃、**不进模型上下文**（实测：文件 11316 字节，进模型的 description 只有 1997 字节），所以可以写得很详细而不浪费 token。
+完整的 23 个变量速查表在 `tools/AggregatedWebSearch.tool.yaml` **文件顶部的注释块**里。那段注释会被 YAML 解析器丢弃、**不进模型上下文**（实测：文件 11488 字节，进模型的 description 只有 2111 字节），所以可以写得很详细而不浪费 token。
 
 ---
 

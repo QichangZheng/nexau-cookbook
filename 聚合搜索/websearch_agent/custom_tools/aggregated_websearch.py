@@ -31,7 +31,7 @@
 | `SEARCH_ENGINE` | 否 | 空(用服务商默认) | 底层搜索引擎，如 `google`、`google\\|baidu`；仅聚合型服务商生效 |
 | `SEARCH_BASE_URL` | 否 | 各服务商内置 | 覆盖上游地址(私有化 / 内网部署) |
 | `SEARCH_TIMEOUT` | 否 | `30` | 单次请求超时秒数 |
-| `SEARCH_MAX_RETRIES` | 否 | `3` | 最大重试次数 |
+| `SEARCH_MAX_RETRIES` | 否 | `3` | **总**尝试次数(含首次)，下限 1 |
 
 **上表就是全部环境变量，每项只有唯一一个变量名**，密钥四家共用 `SEARCH_API_KEY`，
 没有按服务商区分的前缀变量。换服务商只需要改 `SEARCH_PROVIDER` + `SEARCH_API_KEY`。
@@ -55,13 +55,15 @@
 
 改参数、查值域、排错前先看对应上游的官方文档——本文件的注释是二手信息，
 **上游文档才是事实源**：
-
-| Provider | 文档 |
-|------|------|
-| `Serper` | 官网与文档 <https://serper.dev> ／ 交互式调试台(含各端点请求响应示例) <https://serper.dev/playground> ／ API Key 管理 <https://serper.dev/api-keys> |
-| `Seed` | 豆包搜索 Custom 版 <https://docs.volcengine.com/docs/87772/2272953> ／ Global 版 <https://docs.volcengine.com/docs/87772/2548026> ／ 控制台 <https://console.volcengine.com/> |
-| `Baidu` | 「百度搜索」API <https://cloud.baidu.com/doc/qianfan-api/s/Wmbq4z7e5> ／ API Key 说明 <https://cloud.baidu.com/doc/BAIDU_AI_SEARCH/s/5mkmgi38d> ／ 控制台 <https://console.bce.baidu.com/ai-search/home> |
-| `XiaoBei` | 内置文档页 <https://search.xiaobei.top/docs> ／ OpenAPI <https://search.xiaobei.top/openapi.json> |
+- **Serper** —— 官网与文档 <https://serper.dev>；
+  交互式调试台 <https://serper.dev/playground>；Key 管理 <https://serper.dev/api-keys>
+- **Seed（豆包搜索）** —— Custom 版 <https://docs.volcengine.com/docs/87772/2272953>；
+  Global 版 <https://docs.volcengine.com/docs/87772/2548026>；控制台 <https://console.volcengine.com/>
+- **Baidu（百度 AI 搜索）** —— 「百度搜索」API <https://cloud.baidu.com/doc/qianfan-api/s/Wmbq4z7e5>；
+  API Key 说明 <https://cloud.baidu.com/doc/BAIDU_AI_SEARCH/s/5mkmgi38d>；
+  控制台 <https://console.bce.baidu.com/ai-search/home>
+- **XiaoBei（北坡聚合搜索）** —— 文档 <https://search.xiaobei.top/docs>；
+  OpenAPI <https://search.xiaobei.top/openapi.json>
 
 Google 检索算子(`site:` / `-site:` / `tbs` 时效参数)的说明见
 <https://support.google.com/websearch/answer/2466433>。
@@ -75,12 +77,12 @@ Google 检索算子(`site:` / `-site:` / `tbs` 时效参数)的说明见
 
 | 参数 | Serper | Seed | Baidu | XiaoBei |
 |------|:------:|:----:|:-----:|:-------:|
-| `num_results` | ✅ `num` | ✅ `Count` | ✅ `top_k` | ⚠️ `max_results` 是每引擎量级，本地再截断 |
-| `search_type` | ✅ 六个独立端点 | ⚠️ 仅 web/image，其余退化 | ⚠️ 仅影响时效 | ⚠️ 仅网页，`news` 转时效 |
+| `num_results` | ✅ `num` | ✅ `Count` | ✅ `top_k` | ⚠️ 每引擎量级，本地再截断 |
+| `search_type` | ✅ 六端点 | ⚠️ 仅 web/image | ⚠️ 仅影响时效 | ⚠️ 仅网页 |
 | `time_range` 预设 | ✅ `tbs=qdr:*` | ✅ 原生 | ✅ `search_recency_filter` | ✅ `day/week/month/year` |
 | `time_range` 自定义区间 | ✅ `tbs=cdr:*` | ✅ 原生 | ✅ `search_filter.range.page_time` | ❌ |
-| `sites` | ✅ 查询词算子 | ✅ `Filter.Sites` | ✅ `search_filter.match.site` | ✅ 算子+本地过滤 |
-| `block_hosts` | ✅ 查询词算子 | ✅ `Filter.BlockHosts` | ⚠️ 上游 `block_websites` 实测无效，改本地过滤 | ✅ 算子+本地过滤 |
+| `sites` | ✅ 算子 | ✅ `Filter.Sites` | ✅ `match.site` | ✅ 算子+本地 |
+| `block_hosts` | ✅ 算子 | ✅ `Filter.BlockHosts` | ⚠️ 上游无效，走本地过滤 | ✅ 算子+本地 |
 | `authority_only` | ❌ | ✅ `AuthInfoLevel` | ❌ | ❌ |
 | `industry` | ❌ | ✅ `Industry` | ❌ | ❌ |
 | `query_rewrite` | ✅ `autocorrect` | ✅ `QueryRewrite` | ❌ | ❌ |
@@ -102,7 +104,7 @@ Google 检索算子(`site:` / `-site:` / `tbs` 时效参数)的说明见
 |------|-----------|------|
 | Seed | `NeedSummary` | 绑定 `web_summary` 搜索类型，官方 2026-06-23 起不再支持新增开通 |
 | Seed | `ImageWidth/Height{Max,Min}`、`ImageShapes` | 只在 `search_type=images` 下有意义，属长尾；需要时再加 |
-| Baidu | `safe_search`、`config_id`、`search_filter.geo/image` | 长尾；`geo.city` 与本工具 `location`(Google 式"City, Country")语义不同，硬映射会错，故不接 |
+| Baidu | `safe_search`、`config_id`、`search_filter.geo/image` | 长尾；`geo.city` 语义与本工具 `location` 不同，硬映射会错 |
 
 另有几个字段是**刻意收归内部**、不该由调用方决定的：
 `Seed.Filter.NeedUrl`(恒 true，保证结果有可点链接)、
@@ -135,11 +137,7 @@ Serper 侧 9 个请求字段已 100% 覆盖。
 
 失败::
 
-    {
-      "content": "Error: …",
-      "returnDisplay": "Error performing web search.",
-      "error": {"message": "…", "type": "WEB_SEARCH_FAILED"}
-    }
+    {"content": "Error: …", "returnDisplay": "Error performing web search.", "error": {"message": "…", "type": "WEB_SEARCH_FAILED"}}
 """
 
 from __future__ import annotations
@@ -149,9 +147,9 @@ import os
 import re
 import time
 from abc import ABC, abstractmethod
-from datetime import datetime, timezone
-from dataclasses import dataclass
-from typing import Any
+from dataclasses import asdict, dataclass
+from datetime import UTC, datetime
+from typing import Any, cast
 from urllib.parse import urlsplit
 
 import httpx
@@ -298,9 +296,7 @@ def _coerce_env_value(raw: str, default: Any, env_name: str) -> Any:
         try:
             return int(text)
         except ValueError:
-            logger.warning(
-                "环境变量 %s=%r 不是整数，已回退默认 %r", env_name, raw, default
-            )
+            logger.warning("环境变量 %s=%r 不是整数，已回退默认 %r", env_name, raw, default)
             return default
     return text
 
@@ -316,11 +312,13 @@ def resolve_param(param: str, value: Any) -> Any:
         return default
     return _coerce_env_value(raw, default, env_name)
 
+
 # search_type=news 且调用方没显式指定 time_range 时，默认收敛到最近一周
 NEWS_FALLBACK_TIME_RANGE = "OneWeek"
 
 # 合法的时效枚举(与豆包搜索文档一致)；另支持 `YYYY-MM-DD..YYYY-MM-DD` 区间
 TIME_RANGE_PRESETS = ("OneDay", "OneWeek", "OneMonth", "OneYear")
+
 
 class SearchProviderError(Exception):
     """**不可重试**的错误：缺 key、引擎名非法、账号/套餐/额度/参数问题。
@@ -424,6 +422,14 @@ class SearchOptions:
         start, end = start.strip(), end.strip()
         return (start, end) if start and end else None
 
+    def as_dict(self) -> dict[str, Any]:
+        """按字段名取值的快照。
+
+        用于「本服务商忽略了哪些参数」的比对——仓库规范禁止 `getattr` 动态属性访问
+        （见 CLAUDE.md「Type Safety Guidelines」），因此走 dataclass 的静态字段。
+        """
+        return asdict(self)
+
     def split_sites(self) -> list[str]:
         """限定站点列表(已去空)。"""
         return [s.strip() for s in self.sites.split("|") if s.strip()]
@@ -439,11 +445,7 @@ class SearchOptions:
         都能认——环境变量与 LLM 生成的入参格式都不完全可控。
         """
         raw = self.search_engine.strip().strip("[]")
-        return [
-            part.strip().strip("\"'").lower()
-            for part in re.split(r"[|,\s]+", raw)
-            if part.strip().strip("\"'")
-        ]
+        return [part.strip().strip("\"'").lower() for part in re.split(r"[|,\s]+", raw) if part.strip().strip("\"'")]
 
 
 class SearchProviderBase(ABC):
@@ -467,12 +469,15 @@ class SearchProviderBase(ABC):
     ) -> None:
         if not api_key:
             raise SearchProviderError(
-                f"{self.name} API key is required. 请设置环境变量 SEARCH_API_KEY。"
+                f"{self.name} API key is required. 请设置环境变量 SEARCH_API_KEY(或沿用旧变量 {_LEGACY_API_KEY_ENV})。"
             )
         self.api_key = api_key
         self.base_url = (base_url or self.default_base_url).rstrip("/")
         self.timeout = timeout
-        self.max_retries = max_retries
+        # 语义是**总尝试次数**(与既有 web_tool.SerperSearch 一致，错误文案也写
+        # "after N attempts")。必须钳到 >=1：`range(0)` 会让循环体一次都不执行，
+        # `_do_search` 永不被调用，工具在不发出任何请求的情况下 100% 失败。
+        self.max_retries = max(1, max_retries)
 
     # ---------------------------------------------------------------- 子类实现
 
@@ -513,12 +518,11 @@ class SearchProviderBase(ABC):
                 self.name,
                 options.search_engine,
             )
+        supplied = options.as_dict()
         for param in sorted(self.IGNORED_PARAMS):
-            value = getattr(options, param, None)
+            value = supplied.get(param)
             if value != PARAM_DEFAULTS.get(param):
-                logger.warning(
-                    "%s 不支持 %s，本次传入的 %r 已忽略", self.name, param, value
-                )
+                logger.warning("%s 不支持 %s，本次传入的 %r 已忽略", self.name, param, value)
         if options.render_js and not self.supports_render_js:
             logger.warning("%s 不支持浏览器渲染，render_js=True 已忽略", self.name)
         elif options.render_js and not options.full_content:
@@ -601,9 +605,7 @@ class SerperProvider(SearchProviderBase):
 
     name = "Serper"
     default_base_url = "https://google.serper.dev"
-    IGNORED_PARAMS = frozenset(
-        {"authority_only", "industry", "need_content", "full_content", "content_format"}
-    )
+    IGNORED_PARAMS = frozenset({"authority_only", "industry", "need_content", "full_content", "content_format"})
 
     # search_type -> (URL 路径, 响应里承载结果的字段名)
     # 多数端点用同名字段，但 scholar 走 `organic`，所以路径和字段要分开记
@@ -659,16 +661,13 @@ class SerperProvider(SearchProviderBase):
         endpoint_conf = self.ENDPOINT_FOR_TYPE.get(options.search_type)
         if endpoint_conf is None:
             raise SearchProviderError(
-                f"Invalid search type: {options.search_type}. "
-                f"Serper search type should be one of {list(self.ENDPOINT_FOR_TYPE)}"
+                f"Invalid search type: {options.search_type}. Serper search type should be one of {list(self.ENDPOINT_FOR_TYPE)}"
             )
         path, result_key = endpoint_conf
 
         # 2. Serper 没有结构化站点过滤，降级成 Google 查询词算子
         payload: dict[str, Any] = {
-            "q": _apply_site_operators(
-                query, options.split_sites(), options.split_block_hosts()
-            ),
+            "q": _apply_site_operators(query, options.split_sites(), options.split_block_hosts()),
             "num": options.num_results,
             # query_rewrite 在 Serper 侧就是 Google 的拼写纠正
             "autocorrect": options.query_rewrite,
@@ -693,7 +692,8 @@ class SerperProvider(SearchProviderBase):
             json=payload,
         )
         response.raise_for_status()
-        raw = response.json().get(result_key, [])
+        parsed: dict[str, Any] = response.json()
+        raw: list[dict[str, Any]] = parsed.get(result_key) or []
 
         # 5. places 结构与网页结果完全不同(没有 link/snippet，只有坐标与评分)，单独归一
         if options.search_type == "places":
@@ -853,11 +853,12 @@ class SeedProvider(SearchProviderBase):
             json=payload,
         )
         response.raise_for_status()
-        data = response.json()
+        data: dict[str, Any] = response.json()
 
         # 5. 关键：业务错误是在 HTTP 200 里通过 ResponseMetadata.Error 返回的，
         #    只看 HTTP 状态码会把失败当成功
-        error = (data.get("ResponseMetadata") or {}).get("Error")
+        metadata: dict[str, Any] = data.get("ResponseMetadata") or {}
+        error: dict[str, Any] | None = metadata.get("Error")
         if error:
             code_n = error.get("CodeN")
             code = str(error.get("Code") or code_n or "unknown")
@@ -867,7 +868,7 @@ class SeedProvider(SearchProviderBase):
                 raise RetryableUpstreamError(detail)
             raise SearchProviderError(detail)
 
-        result = data.get("Result") or {}
+        result: dict[str, Any] = data.get("Result") or {}
 
         # 6. 图片搜索走 ImageResults，其余走 WebResults
         if doubao_type == "image":
@@ -879,14 +880,15 @@ class SeedProvider(SearchProviderBase):
                     "date": _clean_date(item.get("PublishTime")),
                     "source": item.get("SiteName"),
                 }
-                for item in (result.get("ImageResults") or [])[:count]
+                for item in (cast(list[dict[str, Any]], result.get("ImageResults") or []))[:count]
             ]
 
         # 7. 归一 WebResults：
         #    full_content=True 取 Content(全文)，否则取 Summary(长摘要)，
         #    Snippet(约 200 字，官方不建议喂模型)只作最后兜底
         results: list[dict[str, Any]] = []
-        for item in (result.get("WebResults") or [])[:count]:
+        web_results: list[dict[str, Any]] = result.get("WebResults") or []
+        for item in web_results[:count]:
             if options.full_content:
                 snippet = item.get("Content") or item.get("Summary") or item.get("Snippet") or ""
             else:
@@ -914,10 +916,9 @@ class BaiduProvider(SearchProviderBase):
         - API Key 说明: https://cloud.baidu.com/doc/BAIDU_AI_SEARCH/s/5mkmgi38d
         - 控制台(建 API Key): https://console.bce.baidu.com/ai-search/home
 
-    ⚠️ **本适配器未经成功路径实测**(手上没有可用的 key)，请求体与响应归一全部照
-    上述文档编写。注意 401 并不能证明路径正确——实测网关在 `/v2/ai_search` 前缀上
-    先鉴权再匹配子路径，连 `/v2/ai_search/definitely_not_exist` 都返回 401，
-    所以拿到 key 后**首次调用务必核对**返回结构与本类的字段映射。
+    ⚠️ 排错提示：**401 不能证明路径正确**——实测网关在 `/v2/ai_search` 前缀上先鉴权
+    再匹配子路径，连 `/v2/ai_search/definitely_not_exist` 都返回 401。因此换 base_url
+    或改路径后，要用真实 key 打一次成功请求来确认，不能只看"没报 404"。
     """
 
     name = "Baidu"
@@ -925,8 +926,16 @@ class BaiduProvider(SearchProviderBase):
     # full_content 在此为 no-op(snippet 与 content 返回同一段文本)，也一并提示
     IGNORED_PARAMS = frozenset(
         {
-            "authority_only", "industry", "query_rewrite", "need_content",
-            "full_content", "content_format", "country", "language", "location", "page",
+            "authority_only",
+            "industry",
+            "query_rewrite",
+            "need_content",
+            "full_content",
+            "content_format",
+            "country",
+            "language",
+            "location",
+            "page",
         }
     )
 
@@ -968,7 +977,7 @@ class BaiduProvider(SearchProviderBase):
         if custom:
             page_time["gte"], page_time["lte"] = custom
         elif options.time_range == "OneDay":
-            today = datetime.now(timezone.utc).astimezone().strftime("%Y-%m-%d")
+            today = datetime.now(UTC).astimezone().strftime("%Y-%m-%d")
             page_time["gte"] = today
         if page_time:
             search_filter["range"] = {"page_time": page_time}
@@ -986,9 +995,7 @@ class BaiduProvider(SearchProviderBase):
         blocked = options.split_block_hosts()
         top_k = min(options.num_results * 2, 50) if blocked else options.num_results
         payload: dict[str, Any] = {
-            "messages": [
-                {"role": "user", "content": query[: self.MAX_QUERY_CHARS]}
-            ],
+            "messages": [{"role": "user", "content": query[: self.MAX_QUERY_CHARS]}],
             "search_source": "baidu_search_v2",
             "resource_type_filter": [{"type": "web", "top_k": top_k}],
         }
@@ -1014,26 +1021,23 @@ class BaiduProvider(SearchProviderBase):
             json=payload,
         )
         response.raise_for_status()
-        data = response.json()
+        data: dict[str, Any] = response.json()
 
         # 5. 业务错误：文档标注失败时带 code / message
         if data.get("code") and not data.get("references"):
-            raise SearchProviderError(
-                f"百度 AI 搜索业务错误 [{data.get('code')}] {data.get('message', '')}"
-            )
+            raise SearchProviderError(f"百度 AI 搜索业务错误 [{data.get('code')}] {data.get('message', '')}")
 
         # 6. 归一 references。
         #    实测 `snippet` 与 `content` 返回的是**同一段文本**(逐字相同)，
         #    所以 `full_content` 在本服务商上是 no-op；两个都取只是防上游日后分化。
         lowered = [b.lower() for b in blocked]
         results: list[dict[str, Any]] = []
-        for ref in data.get("references") or []:
+        references: list[dict[str, Any]] = data.get("references") or []
+        for ref in references:
             if len(results) >= options.num_results:
                 break
             # 本地兜底屏蔽(上游 block_websites 无效)
-            if lowered and any(
-                _host_matches(_host_of(ref.get("url") or ""), b) for b in lowered
-            ):
+            if lowered and any(_host_matches(_host_of(ref.get("url") or ""), b) for b in lowered):
                 continue
             if options.full_content:
                 snippet = ref.get("content") or ref.get("snippet") or ""
@@ -1085,8 +1089,14 @@ class XiaoBeiProvider(SearchProviderBase):
     default_base_url = "https://search.xiaobei.top"
     IGNORED_PARAMS = frozenset(
         {
-            "authority_only", "industry", "query_rewrite",
-            "need_content", "content_format", "country", "location", "page",
+            "authority_only",
+            "industry",
+            "query_rewrite",
+            "need_content",
+            "content_format",
+            "country",
+            "location",
+            "page",
         }
     )
     supports_engine_choice = True
@@ -1134,17 +1144,13 @@ class XiaoBeiProvider(SearchProviderBase):
         try:
             return response.json()
         except ValueError as exc:
-            raise RetryableUpstreamError(
-                f"上游返回非 JSON 响应(HTTP {response.status_code}): {response.text[:120]!r}"
-            ) from exc
+            raise RetryableUpstreamError(f"上游返回非 JSON 响应(HTTP {response.status_code}): {response.text[:120]!r}") from exc
 
     def _check_status(self, response: httpx.Response) -> None:
         """把 401/403/422 归到不可重试的配置错误，其余交给基类统一处理。"""
         if response.status_code in self.NON_RETRYABLE_STATUS:
             detail = response.text[:200]
-            raise SearchProviderError(
-                f"北坡搜索拒绝请求 HTTP {response.status_code}: {detail}"
-            )
+            raise SearchProviderError(f"北坡搜索拒绝请求 HTTP {response.status_code}: {detail}")
         response.raise_for_status()
 
     def _do_search(
@@ -1186,9 +1192,7 @@ class XiaoBeiProvider(SearchProviderBase):
         requested = options.split_engines()
         engines = [e for e in requested if e in self.SUPPORTED_ENGINES]
         for unknown in set(requested) - set(engines):
-            logger.warning(
-                "北坡搜索不支持引擎 %r，已忽略(可选 %s)", unknown, self.SUPPORTED_ENGINES
-            )
+            logger.warning("北坡搜索不支持引擎 %r，已忽略(可选 %s)", unknown, self.SUPPORTED_ENGINES)
         if engines:
             upstream_options["engines"] = engines
         if options.language:
@@ -1222,10 +1226,12 @@ class XiaoBeiProvider(SearchProviderBase):
         if data.get("status") in XiaoBeiProvider.TERMINAL_STATUSES:
             return True
         pending = {"queued", "scraping", "pending"}
-        return not any(
-            (item.get("scrape") or {}).get("status") in pending
-            for item in data.get("results") or []
-        )
+        items: list[dict[str, Any]] = data.get("results") or []
+        for item in items:
+            scrape: dict[str, Any] = item.get("scrape") or {}
+            if scrape.get("status") in pending:
+                return False
+        return True
 
     def _poll_task(
         self,
@@ -1267,24 +1273,19 @@ class XiaoBeiProvider(SearchProviderBase):
         data: dict[str, Any],
         options: SearchOptions,
     ) -> list[dict[str, Any]]:
-        results = data.get("results") or []
-        engine_errors = data.get("engine_errors") or []
+        results: list[dict[str, Any]] = data.get("results") or []
+        engine_errors: list[dict[str, Any]] = data.get("engine_errors") or []
         failure_reason = data.get("failure_reason")
         status = data.get("status")
 
         # 6. 搜索本身失败 → 明确报错(注意 status="failed" 只代表抓取失败，不在此列)
         if status == "search_failed" or failure_reason == "all_engines_error":
-            raise RetryableUpstreamError(
-                f"北坡搜索失败 status={status} failure_reason={failure_reason} "
-                f"engine_errors={engine_errors}"
-            )
+            raise RetryableUpstreamError(f"北坡搜索失败 status={status} failure_reason={failure_reason} engine_errors={engine_errors}")
 
         # 7. 空结果的两种可能：上游抖动(有 engine_errors，值得重试) vs 真没有(直接返空)
         if not results:
             if engine_errors:
-                raise RetryableUpstreamError(
-                    f"北坡搜索本轮无结果，下游引擎报错 {engine_errors}，重试"
-                )
+                raise RetryableUpstreamError(f"北坡搜索本轮无结果，下游引擎报错 {engine_errors}，重试")
             return []
 
         # 8. 站点白/黑名单：上游没有该能力，本地按 host 过滤
@@ -1300,9 +1301,9 @@ class XiaoBeiProvider(SearchProviderBase):
                 continue
 
             # 抓到正文就优先用正文，否则回落到搜索摘要
-            scrape = item.get("scrape") or {}
-            markdown = scrape.get("markdown") or ""
-            snippet = markdown if (options.full_content and markdown) else (item.get("snippet") or "")
+            scrape: dict[str, Any] = item.get("scrape") or {}
+            markdown: str = scrape.get("markdown") or ""
+            snippet: str = markdown if (options.full_content and markdown) else (item.get("snippet") or "")
 
             normalized.append(
                 {
@@ -1345,10 +1346,17 @@ def _resolve_provider_name() -> str:
     return (os.getenv("SEARCH_PROVIDER") or "").strip() or "Serper"
 
 
+# 向后兼容：本 RFC 之前内置搜索只认 SERPER_API_KEY。
+# 老用户不改任何配置也应继续可用，因此 SEARCH_API_KEY 缺省时回落到它。
+_LEGACY_API_KEY_ENV = "SERPER_API_KEY"
+
 
 def _resolve_api_key() -> str:
-    """读取 `SEARCH_API_KEY`——**密钥只认这一个变量名，不做按引擎的前缀回落**。"""
-    return (os.getenv("SEARCH_API_KEY") or "").strip()
+    """读取 `SEARCH_API_KEY`；缺省时回落 `SERPER_API_KEY`(向后兼容)。"""
+    value = (os.getenv("SEARCH_API_KEY") or "").strip()
+    if value:
+        return value
+    return (os.getenv(_LEGACY_API_KEY_ENV) or "").strip()
 
 
 def _get_provider() -> SearchProviderBase:
@@ -1359,10 +1367,7 @@ def _get_provider() -> SearchProviderBase:
     provider_key = _PROVIDER_ALIASES.get(provider_key, provider_key)
     provider_cls = _PROVIDER_REGISTRY.get(provider_key)
     if provider_cls is None:
-        raise SearchProviderError(
-            f"Unsupported SEARCH_PROVIDER: {raw_name!r}. "
-            f"Supported providers: Serper / Seed / Baidu / XiaoBei."
-        )
+        raise SearchProviderError(f"Unsupported SEARCH_PROVIDER: {raw_name!r}. Supported providers: Serper / Seed / Baidu / XiaoBei.")
 
     # 2. 解析密钥与可选覆盖项
     api_key = _resolve_api_key()
@@ -1511,8 +1516,11 @@ def aggregated_websearch(
             仅 XiaoBei 支持(映射到上游 `fast_mode` 取反)。
 
     Returns:
-        gemini-cli 风格 dict：成功含 `content` / `returnDisplay` / `sources` / `engine`，
+        gemini-cli 风格 dict：成功含 `content` / `returnDisplay` / `sources` / `provider`，
         失败含 `content` / `returnDisplay` / `error`。**任何情况下都不抛异常。**
+
+        注意顶层是 `provider`(服务商名)；`engine`(底层搜索引擎)只出现在 `sources`
+        的单条结果里，且仅聚合型服务商会写。两者的区别见模块 docstring「术语」一节。
     """
     try:
         # 1. 入参校验(与内置一致，空 query 直接短路)
@@ -1548,9 +1556,7 @@ def aggregated_websearch(
             "search_engine": search_engine,
             "render_js": render_js,
         }
-        options = SearchOptions(
-            **{name: resolve_param(name, value) for name, value in supplied.items()}
-        )
+        options = SearchOptions(**{name: resolve_param(name, value) for name, value in supplied.items()})
 
         # 3. 按环境变量拿引擎并执行(引擎层已做重试；失败返回错误字符串)
         provider = _get_provider()
@@ -1570,10 +1576,7 @@ def aggregated_websearch(
         formatted = _results_to_llm_content(results)
         return {
             "content": f'Web search results for "{query}" (provider: {provider.name}):\n\n{formatted}',
-            "returnDisplay": (
-                f'Search results for "{query}" via {provider.name} '
-                f"returned ({len(results)} results)."
-            ),
+            "returnDisplay": (f'Search results for "{query}" via {provider.name} returned ({len(results)} results).'),
             "sources": results,
             "provider": provider.name,
         }
