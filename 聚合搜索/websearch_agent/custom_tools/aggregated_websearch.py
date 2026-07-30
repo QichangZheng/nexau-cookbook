@@ -1,5 +1,19 @@
 """AggregatedWebSearch — 可切换服务商的聚合 Web 搜索工具。
 
+--------------------------------------------------------------------------
+本文件是**可独立使用的自包含实现**，随 artifact 一起部署，不依赖 NAC runtime
+里 NexAU 的版本。
+
+NexAU 上游已把同一套实现收为内置工具 `web_search`（RFC-0028，对应上游提交
+c988efa）。但 NAC runtime 依赖的是发布版 `nexau` 包，内置版要经过
+「NexAU 发版 → NAC 升级依赖 → 重建 runtime 镜像」才会到达用户手上，
+因此本样例**长期保留自带实现**，不跟随上游节奏。
+
+→ 想知道你的 runtime 有没有内置版，见教程「与 NexAU 内置版的关系」一节。
+→ 若从上游同步改动，注意两处命名差异：
+     上游 `web_search()`            ↔ 本文件 `aggregated_websearch()`
+     上游 `web_search.tool.yaml`    ↔ 本文件 `AggregatedWebSearch.tool.yaml`
+--------------------------------------------------------------------------
 高度参考 Nexau 内置 WebSearch(`nexau.archs.tool.builtin.web_tools` 的
 `google_web_search` + `web_tool.SerperSearch`)，刻意保持一致的：
 

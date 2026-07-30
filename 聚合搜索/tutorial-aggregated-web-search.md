@@ -26,6 +26,7 @@
 - [换一家服务商：只改环境变量](#换一家服务商只改环境变量)
 - [把聚合搜索装到你自己的 Agent 上](#把聚合搜索装到你自己的-agent-上)
 - [注意事项](#注意事项)
+- [与 NexAU 内置版的关系](#与-nexau-内置版的关系)
 - [延伸阅读](#延伸阅读)
 
 ---
@@ -507,4 +508,45 @@ _PROVIDER_REGISTRY["myprovider"] = MyProvider
 
 ---
 
-> 📌 **后续更新**：本工具后续会用于覆盖 NexAU 内置的 `WebSearch` 工具。届时本教程会同步更新为「如何配置内置聚合搜索」，当前的自定义工具写法仍可作为「如何自己接一家服务商」的参考。
+---
+
+## 与 NexAU 内置版的关系
+
+同一套实现已被 NexAU 上游收为内置工具 `web_search`（RFC-0028）。但**本样例长期保留自带实现，不跟随上游节奏**，原因是两者的到达路径不同：
+
+```text
+NexAU 合并 ──► 发布 nexau 包 ──► NAC 升级依赖 ──► 重建 runtime 镜像 ──► 你的 Agent 能用
+                                    ↑
+                        这中间隔着发版周期，通常不是几天的事
+```
+
+NAC runtime 依赖的是**发布版** `nexau` 包（`services/agent-runtime/pyproject.toml` 里是 `nexau>=0.3.0`），不是 NexAU 的 main 分支。所以「上游合了」和「你的 Agent 能用了」之间有相当长的间隔。
+
+而本样例的 `custom_tools/` 随 artifact 一起部署，**不依赖 runtime 里 NexAU 的版本**——今天就能跑。
+
+### 怎么判断你的 runtime 有没有内置版
+
+在 Agent 里跑一次（或用任意能执行代码的工具）：
+
+```python
+try:
+    from nexau.archs.tool.builtin.web_tools import web_search
+    print("有内置版")
+except ImportError:
+    print("没有，用本样例的 custom_tools 写法")
+```
+
+### 有内置版之后要不要切
+
+不是必须切。两种写法的取舍：
+
+| | 本样例的 custom_tools | NexAU 内置 `web_search` |
+|---|---|---|
+| 可用性 | 随 artifact 走，**任何 runtime 版本都能用** | 要 runtime 的 NexAU 够新 |
+| 升级 | 改动要自己同步 | 跟随 runtime 升级 |
+| 定制 | 想加一家服务商直接改文件 | 要等上游或改回自定义 |
+| 体积 | artifact 多 ~70KB | 零 |
+
+**需要锁定行为、或要接内网自研搜索的场景，自带一份反而更稳。** 真要切换时，把 `agent.yaml` 里那三行工具声明删掉即可——内置版会在配了 `SEARCH_API_KEY` 时自动注入（RFC-0028 的条件注入），参数与返回结构完全一致，system prompt 不用动。
+
+> 若要从上游同步改动，注意命名差异：上游是 `web_search()` / `web_search.tool.yaml`，本样例是 `aggregated_websearch()` / `AggregatedWebSearch.tool.yaml`。文件顶部的注释里记了对应的上游提交号。
