@@ -270,14 +270,10 @@ description: Agent 描述
 system_prompt: ./systemprompt.md
 system_prompt_type: jinja                    # ← 必须用 jinja，否则不会读取文件
 
-llm_config:
-  api_type: openai_chat_completion           # ← 必须显式指定
-  model: ${env.LLM_MODEL}                   # ← 平台自动注入，不要硬编码
-  base_url: ${env.LLM_BASE_URL}
-  api_key: ${env.LLM_API_KEY}
-  max_tokens: 8192
+llm_config:                                  # ← 整段可选，缺省用项目默认模型
+  model: ${env.LLM_MODEL}                    # ← 跟随项目默认；指定模型写 provider/model_name 全键
+  max_tokens: 8192                           #    (api_type/base_url/api_key/stream 不要写，平台注入与推导)
   temperature: 0.2                           # ← 知识问答建议 0.1-0.3
-  stream: True
 
 tools:                                       # ← Agentic RAG 标配三件套
   - name: read_file                          #    读取知识库文件
