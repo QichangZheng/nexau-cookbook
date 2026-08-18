@@ -1,0 +1,13 @@
+{
+  "agents": {
+    "labor_law_qa": "labor_law/agent.yaml",
+    "govdoc_writer": "govdoc/agent.yaml"
+  },
+  "excluded": [
+    ".nexau/",
+    ".env",
+    "__pycache__/",
+    "*.pyc",
+    ".DS_Store"
+  ]
+}
