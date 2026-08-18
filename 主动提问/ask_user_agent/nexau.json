@@ -1,0 +1,11 @@
+{
+  "agents": {
+    "ask_user_agent": "agent.yaml"
+  },
+  "excluded": [
+    ".nexau/",
+    ".env",
+    "__pycache__/",
+    "*.pyc"
+  ]
+}
