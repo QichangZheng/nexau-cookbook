@@ -1,0 +1,29 @@
+type: agent
+name: ask_user_agent
+description: 需求澄清助手 — 信息不足时用 ask_user 主动向用户提问，拿到回答后再继续。
+
+system_prompt: ./systemprompt.md
+system_prompt_type: jinja        # jinja 与 file 在框架层等价；平台制品规范只认 jinja
+tool_call_mode: structured
+
+llm_config:
+  model: ${env.LLM_MODEL}
+  max_tokens: 4096
+  temperature: 0.3
+
+tools:
+  # 本样例刻意只挂这一个工具，便于观察 ask_user 的完整行为
+  - name: ask_user
+    yaml_path: ./tools/ask_user.tool.yaml
+    binding: nexau.archs.tool.builtin.session_tools:ask_user
+
+# ⚠️ 挂了 ask_user 就必须写这一行。它的语义是「提问后停下来等回答」——
+#    不声明的话 Agent 提完问不会停，会自己编一个答案继续往下走（不报错，但结果是错的）。
+stop_tools: [ask_user]
+
+# 本样例不需要 skill 与中间件；这两个键即使为空也要显式写出（平台制品规范要求）
+skills: []
+middlewares: []
+
+max_iterations: 20
+max_context_tokens: 32000
